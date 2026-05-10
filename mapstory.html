@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>勺嘴鹬 · 湿地飞羽迁徙史诗</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, background: #0a1a1f; overflow: hidden; height: 100vh; color: #eef5f2; }
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: #1c3a2e; }
+        
+        /* 左上角地点标识 */
+        .location-badge {
+            position: absolute; top: 20px; left: 20px; z-index: 20;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(16px); border-radius: 60px;
+            padding: 8px 20px; border-left: 5px solid #ffcf4a;
+            font-weight: 700; font-size: 1rem; color: #ffffff;
+            display: flex; align-items: center; gap: 8px; pointer-events: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            letter-spacing: 0.5px;
+        }
+        
+        /* 左侧故事面板 - 增强对比度 */
+        .story-panel {
+            position: absolute; bottom: 24px; left: 24px; right: 24px; max-width: 480px;
+            background: rgba(10, 20, 16, 0.92); /* 更深背景 */
+            backdrop-filter: blur(16px);
+            border-radius: 32px;
+            border-left: 5px solid #95cd7c;
+            padding: 20px 24px;
+            z-index: 10;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.6);
+            color: #ffffff;
+        }
+        .story-title { 
+            font-size: 1.75rem; font-weight: 800; 
+            background: linear-gradient(135deg, #e8ffc0, #a8e07c); 
+            -webkit-background-clip: text; 
+            background-clip: text; 
+            color: transparent;
+            text-shadow: 0 0 5px rgba(0,0,0,0.3);
+            margin-bottom: 6px;
+        }
+        .story-sub { 
+            font-size: 0.85rem; 
+            color: #d4f0c4; 
+            margin-bottom: 12px; 
+            border-left: 3px solid #95cd7c; 
+            padding-left: 12px; 
+            font-weight: 500;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+        }
+        .story-text { 
+            color: #f5fff0; 
+            margin-bottom: 16px; 
+            font-weight: 500;
+            line-height: 1.55;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        }
+        .story-metadata { 
+            display: flex; 
+            gap: 14px; 
+            font-size: 0.7rem; 
+            color: #d0f0c0; 
+            border-top: 1px solid rgba(149,205,124,0.5); 
+            padding-top: 12px; 
+            flex-wrap: wrap;
+            font-weight: 500;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+        }
+        .nav-buttons { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+        .nav-btn { 
+            background: rgba(149,205,124,0.25); 
+            border: 1px solid #95cd7c; 
+            padding: 6px 14px; 
+            border-radius: 40px; 
+            cursor: pointer; 
+            transition: 0.2s;
+            color: #ffffff;
+            font-weight: 600;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+        }
+        .nav-btn:hover { background: #95cd7c; color: #1a2f25; text-shadow: none; }
+        .progress-container { margin-top: 14px; height: 4px; background: #2c4238; border-radius: 4px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: #95cd7c; transition: width 0.4s ease; }
+        .hint { 
+            position: absolute; bottom: 24px; right: 24px; 
+            background: rgba(0,0,0,0.75); border-radius: 28px; 
+            padding: 6px 16px; font-size: 0.7rem; z-index: 10; 
+            color: #e0f0d0;
+            font-weight: 500;
+        }
+        
+        /* 弹窗样式 */
+        .custom-popup .leaflet-popup-content-wrapper { background: #1f352b; border-radius: 28px; border-left: 5px solid #95cd7c; width: 340px; }
+        .custom-popup .leaflet-popup-content { margin: 16px 20px; width: auto !important; color: #f0f7ec; }
+        .popup-img { max-width: 100%; border-radius: 20px; margin: 12px 0; border: 2px solid #b8e29e; max-height: 200px; }
+        
+        /* 右上角百科卡片 */
+        .spoon-badge {
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); border-radius: 28px;
+            padding: 12px 18px; border-left: 4px solid #95cd7c; max-width: 300px;
+            cursor: pointer; font-size: 12px; color: #ffffff; margin-top: 12px; margin-right: 12px;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+        }
+        .encyclopedia-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000;
+            justify-content: center; align-items: center;
+        }
+        .encyclopedia-content {
+            background: #1f352b; max-width: 90%; width: 550px; max-height: 80vh;
+            border-radius: 32px; border-left: 6px solid #95cd7c; padding: 24px;
+            overflow-y: auto; color: #ffffff; font-size: 0.85rem; line-height: 1.5;
+        }
+        .close-modal { background: #95cd7c; border: none; padding: 6px 16px; border-radius: 30px; cursor: pointer; margin-top: 16px; font-weight: bold; }
+        @media (max-width: 700px) { .story-panel { left: 12px; right: 12px; padding: 14px; } .story-title { font-size: 1.4rem; } }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="location-badge"><span>📍</span><span id="locationName">楚科奇半岛 · 北极苔原</span></div>
+
+<div class="story-panel" id="storyPanel">
+    <div class="story-title" id="sceneTitle">🪶 勺嘴鹬 · 湿地游牧者</div>
+    <div class="story-sub" id="sceneSub">繁殖地 · 楚科奇苔原带</div>
+    <div class="story-text" id="sceneDesc">全球极度濒危物种，种群不足600只。它们每年沿着东亚-澳大利西亚迁飞区完成往返超过1.6万公里的生命旅程。</div>
+    <div class="story-metadata" id="sceneMeta"><span>📍 楚科奇半岛 | 北极苔原</span><span>📅 6月 · 极昼孵化</span><span>⚠️ IUCN极危</span></div>
+    <div class="progress-container"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="nav-buttons">
+        <div class="nav-btn" id="prevBtn">◀ 前一篇章</div>
+        <div class="nav-btn" id="nextBtn">后一篇章 ▶</div>
+        <div class="nav-btn" id="resetViewBtn">🌿 重置至苔原</div>
+    </div>
+</div>
+<div class="hint">🗺️ 缩放/拖动地图 → 推进故事 | 点击标记查看影像</div>
+
+<div id="encyclopediaModal" class="encyclopedia-modal">
+    <div class="encyclopedia-content">
+        <h3>📖 勺嘴鹬详细百科</h3>
+        <div id="fullEncyclopediaText"></div>
+        <button class="close-modal" id="closeModalBtn">关闭</button>
+    </div>
+</div>
+
+<script>
+// ==================== 图片链接 ====================
+const IMG_CHAP1 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/138b4e55480816f88447096c7f8c65a0c7f0ac29/%E5%8B%BA%E5%98%B4%E9%B9%AC%E8%8B%94%E5%8E%9F.jpg?raw=true";
+const IMG_CHAP2 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E5%85%A8%E8%BA%AB.jpg?raw=true";
+const IMG_CHAP3 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E5%A4%95%E9%98%B3.jpg?raw=true";
+const IMG_CHAP4 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E6%BB%A9%E6%B6%82.jpg?raw=true";
+const IMG_CHAP5 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E8%BF%9B%E9%A3%9F.jpg?raw=true";
+const IMG_CHAP6 = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E7%B9%81%E6%AE%96.jpg?raw=true";
+const IMG_BADGE = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E5%A4%A7%E5%9B%BE.jpg?raw=true";
+const IMG_ENCY = "https://github.com/Cusheepp/Cusheepp.github.io/blob/main/%E5%8B%BA%E5%98%B4%E9%B9%AC%E7%A7%91%E6%99%AE.jpg?raw=true";
+
+const chapters = [
+    { id:0, title:"❄️ 北极苔原·生命摇篮", subtitle:"楚科奇半岛·6月极昼", 
+      desc:"夏季苔原植被繁茂，矮桦柳丛与莎草湿地交错。勺嘴鹬'小勺'在苔藓巢穴中产下4枚卵，雌雄轮流孵化。目前全球繁殖对不足120对，气候变暖严重威胁栖息地。", 
+      meta:"生境:湿润苔原+矮灌木带 | 主要威胁:狐狸与海鸥捕食", 
+      coords:[64.75,-172.50], zoom:8, markerPos:[64.75,-172.50], 
+      display:"🇷🇺 楚科奇半岛·北极苔原带", popupImg:IMG_CHAP1, popupText:"北极夏季24小时白昼，雏鸟早成性，破壳就能行走。" },
+    { id:1, title:"🌊 鄂霍次克海·加油站", subtitle:"勘察加潮间带·7月下旬", 
+      desc:"繁殖后，勺嘴鹬迁徙至鄂霍次克海沿岸滩涂，这里盐沼植被茂密，底栖生物丰富。它们需要积累脂肪，体重几乎翻倍，为跨越白令海做准备。", 
+      meta:"植被:滨海盐沼、大叶藻床", coords:[59.50,150.50], zoom:7.8, markerPos:[59.50,150.50], 
+      display:"🇷🇺 鄂霍次克海·勘察加潮间带", popupImg:IMG_CHAP4, popupText:"铲形喙左右扫食沙蚕、端足类。卫星标记显示在此停歇20天。" },
+    { id:2, title:"🌾 中国黄渤海·生命驿站", subtitle:"条子泥湿地·8-10月", 
+      desc:"全球最重要的停歇地！超过80%的勺嘴鹬种群在黄渤海湿地换羽。江苏条子泥世界自然遗产地有大片互花米草治理区和原生滩涂植被。", 
+      meta:"关键地:条子泥、鸭绿江口", coords:[32.78,120.95], zoom:10, markerPos:[32.78,120.95], 
+      display:"🇨🇳 中国·条子泥湿地(黄海)", popupImg:IMG_CHAP3, popupText:"人工修复高潮位栖息地，环志编码'KY'勺嘴鹬多次被记录。" },
+    { id:3, title:"🌴 东南亚湿地·越冬", subtitle:"缅甸莫塔马湾·11-2月", 
+      desc:"温暖的红树林与潮滩。勺嘴鹬与数千只鸻鹬类混群，滩涂上生长着海桑、白骨壤等红树植被，提供丰富的多毛类食物。但栖息地丧失和捕猎威胁严峻。", 
+      meta:"缅甸莫塔马湾/泰国拉廊", coords:[15.80,97.20], zoom:9, markerPos:[15.80,97.20], 
+      display:"🇲🇲 缅甸·莫塔马湾红树林", popupImg:IMG_CHAP2, popupText:"每年1月全球同步调查在此记录超过150只。" },
+    { id:4, title:"⚡ 北返·黄海再临", subtitle:"4月-5月·艰难归途", 
+      desc:"春暖花开，勺嘴鹬北返。再次途经黄渤海湿地，此时滩涂植被萌发，但围垦与污染使栖息地碎片化。'小勺'必须储存足够能量跨越西伯利亚。", 
+      meta:"山东/江苏沿海湿地", coords:[37.40,122.20], zoom:8.5, markerPos:[37.40,122.20], 
+      display:"🇨🇳 黄海北岸·鸭绿江口湿地", popupImg:IMG_CHAP5, popupText:"北返能量补给站，极其依赖滩涂生态。" },
+    { id:5, title:"⭐ 希望羽翼·保育新生", subtitle:"全护飞行动·未来可期", 
+      desc:"中俄缅等多国合作：繁殖地'勺子守护者'项目、条子泥高潮位栖息地修复、缅甸社区巡护等。2025年全球种群稳定在600只左右，人工孵化+野化放归初见成效。", 
+      meta:"成果:头戴卫星追踪器幼鸟成功归返", coords:[64.75,-172.50], zoom:7, markerPos:[64.75,-172.50], 
+      display:"🇷🇺 楚科奇·保育回归苔原", popupImg:IMG_CHAP6, popupText:"2024年繁殖季在楚科奇发现了超过60个成功巢穴。" }
+];
+
+let currentChapterIdx = 0, markersLayer = L.layerGroup(), map;
+
+map = L.map('map').setView(chapters[0].coords, chapters[0].zoom);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OSM &copy; CartoDB', subdomains: 'abcd', maxZoom: 19, minZoom: 3
+}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri', maxZoom: 18, opacity: 0.6
+}).addTo(map);
+
+const spoonIcon = L.divIcon({ 
+    html: '<div style="background:#7eb09e; width:36px; height:36px; border-radius:50%; border:2px solid #f9e2a1; display:flex; align-items:center; justify-content:center; font-size:22px;">🐦</div>', 
+    iconSize: [36,36], popupAnchor: [0,-18] 
+});
+
+function rebuildMarkers() {
+    markersLayer.clearLayers();
+    chapters.forEach(ch => {
+        L.marker(ch.markerPos, { icon: spoonIcon })
+            .bindPopup(`<strong>${ch.title}</strong><br><img class="popup-img" src="${ch.popupImg}" onerror="this.src='https://picsum.photos/300/200'"><br>${ch.popupText}<br><span style="font-size:0.7rem; background:#0e241e; padding:4px 10px; border-radius:20px; display:inline-block; margin-top:6px;">📍 ${ch.display}</span>`, { className: 'custom-popup', maxWidth: 360 })
+            .on('click', () => setChapterByIndex(ch.id, true))
+            .addTo(markersLayer);
+    });
+    markersLayer.addTo(map);
+}
+
+function drawRoute() {
+    const points = chapters.map(ch => L.latLng(ch.coords[0], ch.coords[1]));
+    L.polyline(points, { color: '#ffbc6e', weight: 4, opacity: 0.8, dashArray: '8,8' }).addTo(map);
+}
+
+function updatePanelContent(chapter) {
+    document.getElementById('sceneTitle').innerHTML = chapter.title;
+    document.getElementById('sceneSub').innerHTML = chapter.subtitle;
+    document.getElementById('sceneDesc').innerHTML = chapter.desc;
+    document.getElementById('sceneMeta').innerHTML = `<span>🌿 ${chapter.meta}</span><span>📍 第${chapter.id+1}/${chapters.length}站</span><span>🪶 极危保育中</span>`;
+    document.getElementById('progressFill').style.width = `${((chapter.id+1)/chapters.length)*100}%`;
+    document.getElementById('locationName').innerHTML = chapter.display;
+}
+
+function setChapterByIndex(index, animate = true) {
+    if (index < 0) index = 0;
+    if (index >= chapters.length) index = chapters.length - 1;
+    const target = chapters[index];
+    currentChapterIdx = index;
+    updatePanelContent(target);
+    if (animate) map.flyTo(target.coords, target.zoom, { duration: 1.3 });
+    else map.setView(target.coords, target.zoom);
+    setTimeout(() => {
+        markersLayer.eachLayer(layer => {
+            if (Math.abs(layer.getLatLng().lat - target.markerPos[0]) < 0.15) layer.openPopup();
+        });
+    }, 550);
+}
+
+document.getElementById('prevBtn').onclick = () => setChapterByIndex(currentChapterIdx - 1, true);
+document.getElementById('nextBtn').onclick = () => setChapterByIndex(currentChapterIdx + 1, true);
+document.getElementById('resetViewBtn').onclick = () => setChapterByIndex(0, true);
+map.on('moveend', () => {
+    const center = map.getCenter();
+    let bestIdx = 0, bestDist = Infinity;
+    chapters.forEach((ch, i) => {
+        const dist = center.distanceTo(L.latLng(ch.coords[0], ch.coords[1]));
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    });
+    if (bestIdx !== currentChapterIdx && bestDist < 200000) {
+        currentChapterIdx = bestIdx;
+        updatePanelContent(chapters[bestIdx]);
+    }
+});
+
+const fullEncyHtml = `<div style="text-align:center;"><img src="${IMG_ENCY}" style="max-width:100%; border-radius:20px; margin-bottom:12px;"></div><p><strong>勺嘴鹬 (Calidris pygmaea)</strong><br>别名：匙嘴鹬、琵嘴鹬，昵称"小勺子"。<br>保护级别：IUCN极危（CR）；中国国家一级保护动物。</p><hr><p><strong>外形特征：</strong>体长14-16cm，体重40-60g。嘴黑色，基部宽厚平扁，尖端膨大呈铲形/勺状。繁殖羽头、颈、背红栗色具黑斑；非繁殖羽上体灰褐色。</p><p><strong>分布与迁徙：</strong>繁殖于俄罗斯东北部楚科奇半岛至堪察加半岛北部的北极冻原。越冬于东南亚及中国华南沿海。东亚-澳大利西亚迁飞区，单程约8000km。</p><p><strong>生活习性：</strong>栖息沿海滩涂、河口，用勺嘴左右扫动滤食小型甲壳类、软体动物等。常与红颈滨鹬等混群。</p><p><strong>濒危现状：</strong>全球成鸟仅240-620只（2021）。主要威胁：滩涂围垦、污染、气候变化、非法捕猎。</p>`;
+
+const badgeControl = L.control({ position: 'topright' });
+badgeControl.onAdd = () => {
+    const div = L.DomUtil.create('div', 'spoon-badge');
+    div.innerHTML = `<div style="display:flex; align-items:center; gap:12px;"><img src="${IMG_BADGE}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;"><div><strong style="color:#dcf5b0;">勺嘴鹬小百科</strong><br><span style="font-size:11px;">匙形喙 · 极危旗舰种</span></div></div><hr style="margin:8px 0;"><div style="font-size:11px;">🌍 IUCN极危 | 全球仅剩约240-620只<br>📏 体长14-16cm · 标志性铲形喙<br>🪶 繁殖于俄北极苔原，越冬东南亚</div><div style="margin-top:8px; text-align:right;"><span style="background:#2c4238; padding:2px 10px; border-radius:20px;">📖 点击查看详细百科</span></div>`;
+    div.onclick = () => { document.getElementById('fullEncyclopediaText').innerHTML = fullEncyHtml; document.getElementById('encyclopediaModal').style.display = 'flex'; };
+    return div;
+};
+badgeControl.addTo(map);
+
+document.getElementById('closeModalBtn').onclick = () => document.getElementById('encyclopediaModal').style.display = 'none';
+window.onclick = (e) => { if (e.target === document.getElementById('encyclopediaModal')) document.getElementById('encyclopediaModal').style.display = 'none'; };
+
+rebuildMarkers();
+drawRoute();
+setTimeout(() => { setChapterByIndex(0, false); }, 500);
+</script>
+</body>
+</html>
